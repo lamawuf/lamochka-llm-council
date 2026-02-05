@@ -5,20 +5,29 @@ import google.generativeai as genai
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from .base import BaseProvider, LLMResponse
-from config import settings, DIRECT_MODELS
+import config
+from config import DIRECT_MODELS
 
 
 class GoogleProvider(BaseProvider):
     """Google Gemini API provider."""
 
     name = "google"
+    _configured_key = None
 
     def __init__(self):
-        # Support both GOOGLE_API_KEY and GEMINI_API_KEY
-        self.api_key = settings.google_api_key or settings.gemini_api_key
         self.default_model = DIRECT_MODELS["gemini"]
-        if self.api_key:
+
+    @property
+    def api_key(self):
+        """Get API key from current settings (supports hot reload)."""
+        return config.settings.google_api_key or config.settings.gemini_api_key
+
+    def _ensure_configured(self):
+        """Configure genai with current API key if changed."""
+        if self.api_key and self.api_key != GoogleProvider._configured_key:
             genai.configure(api_key=self.api_key)
+            GoogleProvider._configured_key = self.api_key
 
     def is_available(self) -> bool:
         return bool(self.api_key)
@@ -47,6 +56,9 @@ class GoogleProvider(BaseProvider):
         model_id = model or self.default_model
         if model_id == "gemini":
             model_id = DIRECT_MODELS["gemini"]
+
+        # Ensure genai is configured with current key
+        self._ensure_configured()
 
         try:
             # Configure generation

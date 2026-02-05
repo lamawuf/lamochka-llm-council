@@ -5,7 +5,8 @@ from typing import Optional
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from .base import BaseProvider, LLMResponse
-from config import settings, OPENROUTER_MODELS
+import config
+from config import OPENROUTER_MODELS
 
 
 class OpenRouterProvider(BaseProvider):
@@ -15,8 +16,12 @@ class OpenRouterProvider(BaseProvider):
     base_url = "https://openrouter.ai/api/v1"
 
     def __init__(self):
-        self.api_key = settings.openrouter_api_key
         self.default_model = OPENROUTER_MODELS["claude"]
+
+    @property
+    def api_key(self):
+        """Get API key from current settings (supports hot reload)."""
+        return config.settings.openrouter_api_key
 
     def is_available(self) -> bool:
         return bool(self.api_key)
@@ -74,7 +79,7 @@ class OpenRouterProvider(BaseProvider):
         }
 
         try:
-            async with httpx.AsyncClient(timeout=settings.request_timeout) as client:
+            async with httpx.AsyncClient(timeout=config.settings.request_timeout) as client:
                 response = await client.post(
                     f"{self.base_url}/chat/completions",
                     headers=headers,

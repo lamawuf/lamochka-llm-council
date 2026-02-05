@@ -5,7 +5,8 @@ import ollama
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from .base import BaseProvider, LLMResponse
-from config import settings, OLLAMA_MODELS
+import config
+from config import OLLAMA_MODELS
 
 
 class OllamaProvider(BaseProvider):
@@ -14,9 +15,13 @@ class OllamaProvider(BaseProvider):
     name = "ollama"
 
     def __init__(self):
-        self.host = settings.ollama_host
         self.default_model = OLLAMA_MODELS["llama"]
         self._available = None
+
+    @property
+    def host(self):
+        """Get host from current settings (supports hot reload)."""
+        return config.settings.ollama_host
 
     def is_available(self) -> bool:
         """Check if Ollama is running locally."""

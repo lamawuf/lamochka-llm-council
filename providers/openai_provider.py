@@ -5,7 +5,8 @@ from openai import AsyncOpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from .base import BaseProvider, LLMResponse
-from config import settings, DIRECT_MODELS
+import config
+from config import DIRECT_MODELS
 
 
 class OpenAIProvider(BaseProvider):
@@ -14,9 +15,20 @@ class OpenAIProvider(BaseProvider):
     name = "openai"
 
     def __init__(self):
-        self.api_key = settings.openai_api_key
-        self.client = AsyncOpenAI(api_key=self.api_key) if self.api_key else None
         self.default_model = DIRECT_MODELS["gpt4"]
+        self._client = None
+
+    @property
+    def api_key(self):
+        """Get API key from current settings (supports hot reload)."""
+        return config.settings.openai_api_key
+
+    @property
+    def client(self):
+        """Lazy client initialization with current API key."""
+        if self._client is None and self.api_key:
+            self._client = AsyncOpenAI(api_key=self.api_key)
+        return self._client
 
     def is_available(self) -> bool:
         return bool(self.api_key)

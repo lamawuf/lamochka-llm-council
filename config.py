@@ -13,6 +13,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 GLOBAL_ENV_PATH = Path.home() / ".claude" / ".env"
 
 
+def get_settings():
+    """Factory to create fresh settings instance (re-reads .env files)."""
+    return Settings()
+
+
 class Settings(BaseSettings):
     """Application settings loaded from environment."""
 
@@ -48,17 +53,24 @@ class Settings(BaseSettings):
 settings = Settings()
 
 
+def reload_settings():
+    """Reload settings from .env files. Useful after updating API keys."""
+    global settings
+    settings = Settings()
+    return settings
+
+
 # ==============================================
 # Default Model Mappings
 # ==============================================
 
-# OpenRouter model IDs
+# OpenRouter model IDs (updated Jan 2025)
 OPENROUTER_MODELS = {
     "claude": "anthropic/claude-3.5-sonnet",
     "gpt4": "openai/gpt-4o",
-    "gemini": "google/gemini-pro-1.5",
-    "grok": "x-ai/grok-2-1212",
-    "llama": "meta-llama/llama-3.1-70b-instruct",
+    "gemini": "google/gemini-2.0-flash-001",
+    "grok": "x-ai/grok-3",
+    "llama": "meta-llama/llama-3.3-70b-instruct",
 }
 
 # Direct API model IDs

@@ -10,10 +10,23 @@ Usage:
     python main.py --hitl "Complex question requiring human oversight"
 """
 
+# Load environment variables BEFORE importing config
+# This ensures API keys are available when pydantic-settings initializes
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load local .env first (project-specific settings)
+load_dotenv(".env", override=False)
+
+# Then load global ~/.claude/.env with override=True
+# This means global API keys take priority over local placeholders
+_global_env = Path.home() / ".claude" / ".env"
+if _global_env.exists():
+    load_dotenv(_global_env, override=True)
+
 import asyncio
 import json
 import sys
-from pathlib import Path
 from typing import Optional
 
 import typer
@@ -21,7 +34,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from config import settings, DEFAULT_ROLES
+from config import settings, DEFAULT_ROLES, reload_settings
 from council import LLMCouncil, run_council
 from schemas import CouncilConfig, RoleAssignment
 from providers import ProviderFactory
@@ -104,6 +117,12 @@ def run(
         council run --hitl "Should we use microservices or monolith?"
         council run -f prompt.txt --roles custom_roles.json
     """
+    # Reload settings to pick up any .env changes
+    reload_settings()
+
+    # Clear provider cache to use new API keys
+    ProviderFactory._instances.clear()
+
     # Get prompt from argument or file
     if prompt_file:
         final_prompt = prompt_file.read_text().strip()
@@ -165,6 +184,10 @@ def run(
 @app.command()
 def status():
     """Check status of available LLM providers."""
+    # Reload settings and clear provider cache
+    reload_settings()
+    ProviderFactory._instances.clear()
+
     console.print("\n[bold]LLM Provider Status[/bold]\n")
 
     table = Table(show_header=True)

@@ -5,7 +5,8 @@ from typing import Optional
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from .base import BaseProvider, LLMResponse
-from config import settings, DIRECT_MODELS
+import config
+from config import DIRECT_MODELS
 
 
 class XAIProvider(BaseProvider):
@@ -15,8 +16,12 @@ class XAIProvider(BaseProvider):
     base_url = "https://api.x.ai/v1"
 
     def __init__(self):
-        self.api_key = settings.xai_api_key
         self.default_model = DIRECT_MODELS["grok"]
+
+    @property
+    def api_key(self):
+        """Get API key from current settings (supports hot reload)."""
+        return config.settings.xai_api_key
 
     def is_available(self) -> bool:
         return bool(self.api_key)
@@ -64,7 +69,7 @@ class XAIProvider(BaseProvider):
         }
 
         try:
-            async with httpx.AsyncClient(timeout=settings.request_timeout) as client:
+            async with httpx.AsyncClient(timeout=config.settings.request_timeout) as client:
                 response = await client.post(
                     f"{self.base_url}/chat/completions",
                     headers=headers,

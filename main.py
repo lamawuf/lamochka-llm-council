@@ -103,6 +103,19 @@ def run(
         None, "--save", "-s",
         help="Save result to file",
     ),
+    skip_synthesis: bool = typer.Option(
+        False, "--skip-synthesis",
+        help="Skip LLM synthesis (Stage 3) - return raw data for external Chairman",
+    ),
+    required_twists: int = typer.Option(
+        3, "--required-twists",
+        help="Number of twists required from each participant (0 to disable validation)",
+        min=0, max=10,
+    ),
+    no_validate: bool = typer.Option(
+        False, "--no-validate",
+        help="Disable response validation entirely",
+    ),
 ):
     """
     Run an LLM Council session.
@@ -140,6 +153,9 @@ def run(
         manual_mode=manual_mode,
         enable_web_search=not no_search,
         output_format=output_format,
+        skip_synthesis=skip_synthesis,
+        required_twists=required_twists,
+        validate_responses=not no_validate,
     )
 
     # Load custom roles if provided

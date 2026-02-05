@@ -116,7 +116,7 @@ DEFAULT_ROLES = {
     "chairman": RoleConfig(
         name="Chairman",
         description="Arbitrator who synthesizes all opinions and makes final decisions",
-        default_model="gpt4",  # Using GPT-4 as Chairman (no Anthropic key)
+        default_model="claude",  # Claude excels at synthesis and nuanced arbitration
         system_prompt="""You are the Chairman of an LLM Council - a wise arbitrator and synthesizer.
 
 Your responsibilities:

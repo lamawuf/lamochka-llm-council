@@ -16,10 +16,10 @@ class CouncilConfig(BaseModel):
     """Configuration for a council session."""
     roles: List[RoleAssignment] = Field(
         default_factory=lambda: [
-            RoleAssignment(role="chairman", model="claude"),
-            RoleAssignment(role="critic", model="grok"),
-            RoleAssignment(role="researcher", model="gemini"),
-            RoleAssignment(role="optimizer", model="gpt4"),
+            RoleAssignment(role="chairman", model="claude"),  # Best at synthesis
+            RoleAssignment(role="critic", model="grok"),      # Sharp critical analysis
+            RoleAssignment(role="researcher", model="gemini"), # Good at research
+            RoleAssignment(role="optimizer", model="gpt4"),   # Practical improvements
         ]
     )
     max_debate_rounds: int = Field(default=3, ge=1, le=5)
@@ -28,6 +28,13 @@ class CouncilConfig(BaseModel):
     enable_web_search: bool = Field(default=True, description="Enable web search for Researcher")
     manual_mode: bool = Field(default=False, description="Manual input mode (no API calls)")
     output_format: str = Field(default="markdown", pattern="^(markdown|json)$")
+
+    # Validation settings
+    validate_responses: bool = Field(default=True, description="Validate Stage 1 responses have all required twists")
+    required_twists: int = Field(default=3, ge=0, description="Number of twists required from each participant (0 to disable)")
+
+    # Synthesis settings
+    skip_synthesis: bool = Field(default=False, description="Skip LLM synthesis (Stage 3) - return raw data for external Chairman")
 
 
 class StageResult(BaseModel):

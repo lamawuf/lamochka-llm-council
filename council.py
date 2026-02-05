@@ -1,13 +1,19 @@
 """
 Core LLM Council logic.
 Implements the three-stage council methodology:
-1. First Opinions - Initial responses from all models
+1. First Opinions - Initial responses from all models (with validation & retry)
 2. Review & Debate - Anonymous cross-review with role-specific perspectives
-3. Final Synthesis - Chairman arbitrates and synthesizes final answer
+3. Final Synthesis - Optional LLM synthesis OR raw data for external Chairman
+
+Key improvements:
+- Validates that each participant provides ALL requested twists
+- Retries participants who don't complete the assignment
+- Supports --skip-synthesis for external Chairman (e.g., Claude Code)
 """
 
 import asyncio
 import json
+import re
 import time
 from typing import Dict, List, Optional, Tuple
 from rich.console import Console
@@ -25,6 +31,90 @@ from schemas import CouncilConfig, StageResult, CouncilResult, RoleAssignment
 from search import web_searcher
 
 console = Console()
+
+
+# =============================================================================
+# Response Validation
+# =============================================================================
+
+def count_twists_in_response(response: str, expected_count: int = 3) -> int:
+    """Count how many twists/proposals are in a response.
+
+    Looks for patterns like:
+    - "Twist 1:", "Twist 2:", "Twist 3:"
+    - "### Twist 1", "### Twist 2"
+    - "**Twist 1:**", "**Twist 2:**"
+    - "1. **Meme Twist**", "2. **Stakes Twist**"
+    """
+    patterns = [
+        r'(?i)twist\s*[#\d:]+',           # Twist 1:, Twist #1, etc.
+        r'(?i)###?\s*twist',               # ### Twist, ## Twist
+        r'(?i)\*\*twist\s*\d+',            # **Twist 1
+        r'(?i)(?:meme|stakes|community)\s*twist',  # Specific twist names
+        r'(?i)«.*?twist.*?»',              # «The Meme Twist»
+    ]
+
+    found_twists = set()
+    for pattern in patterns:
+        matches = re.findall(pattern, response)
+        found_twists.update(matches)
+
+    # Also check for numbered sections with twist-like content
+    numbered_sections = re.findall(r'(?m)^#{1,3}\s*(?:Twist\s*)?\d+[.:]', response)
+
+    return max(len(found_twists), len(numbered_sections))
+
+
+def validate_stage1_response(response: str, required_twists: int = 3) -> Tuple[bool, int, str]:
+    """Validate that a Stage 1 response contains all required twists.
+
+    Returns:
+        Tuple of (is_valid, twist_count, error_message)
+    """
+    if "[Error:" in response:
+        return False, 0, "API error"
+
+    twist_count = count_twists_in_response(response, required_twists)
+
+    if twist_count == 0:
+        return False, 0, "No twists found - gave analysis instead of proposals"
+    elif twist_count < required_twists:
+        return False, twist_count, f"Only {twist_count}/{required_twists} twists provided"
+
+    return True, twist_count, "OK"
+
+
+def get_retry_prompt(original_prompt: str, twist_count: int, required_twists: int) -> str:
+    """Generate a retry prompt for incomplete responses."""
+    if twist_count == 0:
+        return f"""You provided analysis but did NOT complete the assignment.
+
+REQUIRED: Give {required_twists} concrete TWISTS in the format from the original prompt.
+
+Each twist MUST have:
+1. Суть изменения (what changes in gameplay)
+2. Психологический триггер (FOMO, loss aversion, etc.)
+3. Виральная механика (how it makes people share)
+4. Техническая сложность (1-10)
+5. Реализация (how to implement)
+
+DO NOT give general analysis. Give {required_twists} SPECIFIC PROPOSALS NOW.
+
+Original prompt:
+{original_prompt}"""
+    else:
+        missing = required_twists - twist_count
+        return f"""You provided {twist_count} out of {required_twists} twists.
+
+ADD {missing} MORE TWISTS in the same format. Each twist needs:
+1. Суть изменения
+2. Психологический триггер
+3. Виральная механика
+4. Техническая сложность (1-10)
+5. Реализация
+
+Original prompt:
+{original_prompt}"""
 
 
 class LLMCouncil:
@@ -93,11 +183,15 @@ class LLMCouncil:
         return response.content, response.tokens_used or 0
 
     async def _run_stage1(self, prompt: str) -> StageResult:
-        """Stage 1: First Opinions - Get initial responses from all council members."""
+        """Stage 1: First Opinions - Get initial responses from all council members.
+
+        Includes validation and retry for incomplete responses.
+        """
         console.print("\n[bold cyan]Stage 1: First Opinions[/bold cyan]")
 
         responses = {}
         tasks = []
+        required_twists = self.config.required_twists
 
         # Prepare prompts for each role
         stage_prompt = STAGE_PROMPTS["stage1_first_opinion"].format(prompt=prompt)
@@ -120,24 +214,45 @@ class LLMCouncil:
 
             tasks.append((
                 assignment,
-                self._generate_response(assignment, enhanced_prompt),
+                enhanced_prompt,
             ))
 
-        # Run all tasks concurrently
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            console=console,
-        ) as progress:
-            task_id = progress.add_task("Gathering opinions...", total=len(tasks))
+        # Run all tasks and validate with retry
+        for assignment, enhanced_prompt in tasks:
+            role_name = assignment.role.capitalize()
+            console.print(f"  [cyan]{role_name}[/cyan] thinking...")
 
-            for assignment, coro in tasks:
-                role_name = assignment.role.capitalize()
-                progress.update(task_id, description=f"[cyan]{role_name}[/cyan] thinking...")
-                content, tokens = await coro
-                responses[role_name] = content
-                self.total_tokens += tokens
-                progress.advance(task_id)
+            content, tokens = await self._generate_response(assignment, enhanced_prompt)
+            self.total_tokens += tokens
+
+            # Validate response if validation is enabled
+            if self.config.validate_responses and required_twists > 0:
+                is_valid, twist_count, error_msg = validate_stage1_response(content, required_twists)
+
+                if not is_valid and "[Error:" not in content:
+                    console.print(f"    [yellow]⚠ {role_name}: {error_msg}. Retrying...[/yellow]")
+
+                    # Retry with explicit instructions
+                    retry_prompt = get_retry_prompt(prompt, twist_count, required_twists)
+                    retry_content, retry_tokens = await self._generate_response(assignment, retry_prompt)
+                    self.total_tokens += retry_tokens
+
+                    # Combine original + retry if retry added new content
+                    if twist_count > 0:
+                        content = f"{content}\n\n---\n**[Additional twists from retry]**\n\n{retry_content}"
+                    else:
+                        content = retry_content
+
+                    # Re-validate
+                    is_valid, new_count, _ = validate_stage1_response(content, required_twists)
+                    if is_valid:
+                        console.print(f"    [green]✓ {role_name}: Now has {new_count} twists[/green]")
+                    else:
+                        console.print(f"    [red]✗ {role_name}: Still incomplete ({new_count}/{required_twists})[/red]")
+                else:
+                    console.print(f"    [green]✓ {role_name}: {twist_count} twists[/green]")
+
+            responses[role_name] = content
 
         return StageResult(
             stage=1,
@@ -235,8 +350,8 @@ class LLMCouncil:
                 break
 
         if not chairman_assignment:
-            # Default to Claude as chairman
-            chairman_assignment = RoleAssignment(role="chairman", model="claude")
+            # Default to Claude as chairman (best at synthesis)
+            chairman_assignment = RoleAssignment(role="chairman", model="claude", provider="openrouter")
 
         # Format all previous responses
         stage1_formatted = "\n\n".join([
@@ -366,11 +481,15 @@ class LLMCouncil:
                 console.print("  [yellow]↻ High disagreement, continuing debate...[/yellow]")
                 current_responses = stage2_result.responses
 
-        # Stage 3: Final Synthesis
-        stage3_result = await self._run_stage3(prompt, stage1_result, stage2_results)
-        self.results.append(stage3_result)
-
-        final_answer = stage3_result.responses.get("Chairman", "")
+        # Stage 3: Final Synthesis (optional)
+        if self.config.skip_synthesis:
+            console.print("\n[bold yellow]Stage 3: Skipped (--skip-synthesis)[/bold yellow]")
+            console.print("  [dim]Raw data returned for external Chairman synthesis[/dim]")
+            final_answer = "[Synthesis skipped - use raw data from stages 1-2]"
+        else:
+            stage3_result = await self._run_stage3(prompt, stage1_result, stage2_results)
+            self.results.append(stage3_result)
+            final_answer = stage3_result.responses.get("Chairman", "")
 
         duration = time.time() - start_time
 

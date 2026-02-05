@@ -4,24 +4,30 @@ Defines default roles, models, prompts, and settings.
 """
 
 from typing import Optional
+from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+# Global env file path (shared across all projects)
+GLOBAL_ENV_PATH = Path.home() / ".claude" / ".env"
 
 
 class Settings(BaseSettings):
     """Application settings loaded from environment."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=[GLOBAL_ENV_PATH, ".env"],  # Global first, then local override
         env_file_encoding="utf-8",
         extra="ignore"
     )
 
-    # API Keys
+    # API Keys (support both naming conventions)
     openrouter_api_key: Optional[str] = None
     openai_api_key: Optional[str] = None
     anthropic_api_key: Optional[str] = None
-    google_api_key: Optional[str] = None
+    google_api_key: Optional[str] = Field(default=None, alias="gemini_api_key")
+    gemini_api_key: Optional[str] = None  # Alias for google_api_key
     xai_api_key: Optional[str] = None
     serper_api_key: Optional[str] = None
 
@@ -57,10 +63,10 @@ OPENROUTER_MODELS = {
 
 # Direct API model IDs
 DIRECT_MODELS = {
-    "claude": "claude-3-5-sonnet-20241022",
+    "claude": "claude-sonnet-4-20250514",
     "gpt4": "gpt-4o",
-    "gemini": "gemini-1.5-pro",
-    "grok": "grok-2-1212",
+    "gemini": "gemini-2.0-flash",
+    "grok": "grok-3-latest",
 }
 
 # Ollama models (local)
@@ -98,7 +104,7 @@ DEFAULT_ROLES = {
     "chairman": RoleConfig(
         name="Chairman",
         description="Arbitrator who synthesizes all opinions and makes final decisions",
-        default_model="claude",
+        default_model="gpt4",  # Using GPT-4 as Chairman (no Anthropic key)
         system_prompt="""You are the Chairman of an LLM Council - a wise arbitrator and synthesizer.
 
 Your responsibilities:

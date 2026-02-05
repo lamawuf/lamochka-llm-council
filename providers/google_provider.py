@@ -14,7 +14,8 @@ class GoogleProvider(BaseProvider):
     name = "google"
 
     def __init__(self):
-        self.api_key = settings.google_api_key
+        # Support both GOOGLE_API_KEY and GEMINI_API_KEY
+        self.api_key = settings.google_api_key or settings.gemini_api_key
         self.default_model = DIRECT_MODELS["gemini"]
         if self.api_key:
             genai.configure(api_key=self.api_key)

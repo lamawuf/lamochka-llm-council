@@ -17,44 +17,74 @@ A sophisticated system that orchestrates multiple LLMs (Claude, GPT-4, Gemini, G
 
 ## 🚀 Quick Start
 
-### Installation
+### Option 1: One-Line Setup (Recommended)
 
 ```bash
-# Clone the repository
-git clone https://github.com/llamich/lamochka-llm-council.git
+git clone https://github.com/lamawuf/lamochka-llm-council.git
+cd lamochka-llm-council
+chmod +x setup.sh && ./setup.sh
+```
+
+The setup script will:
+- Create `.env` from template
+- Install dependencies
+- Show you what API keys to add
+
+### Option 2: Manual Setup
+
+```bash
+# Clone
+git clone https://github.com/lamawuf/lamochka-llm-council.git
 cd lamochka-llm-council
 
-# Install with Poetry (recommended)
-poetry install
-
-# Or with pip
-pip install -e .
-```
-
-### Configuration
-
-```bash
-# Copy environment template
+# Create .env
 cp .env.example .env
 
-# Edit .env with your API keys
-# Minimum: OPENROUTER_API_KEY (provides access to all models)
+# Install dependencies
+pip install -r requirements.txt
+# or: poetry install
+
+# Add your API keys to .env (see below)
 ```
 
-### Basic Usage
+### API Keys
+
+You need **at least one** provider. Edit `.env`:
 
 ```bash
-# Run a council session
-python main.py run "What is the best approach to implement a distributed cache?"
+# Option A: OpenRouter (ONE key for ALL models) — recommended
+OPENROUTER_API_KEY=sk-or-v1-xxx   # Get at https://openrouter.ai/keys
 
-# With human-in-the-loop
-python main.py run --hitl "Should we use microservices or monolith for our startup?"
+# Option B: Direct API keys (any combination)
+OPENAI_API_KEY=sk-xxx             # https://platform.openai.com/api-keys
+ANTHROPIC_API_KEY=sk-ant-xxx      # https://console.anthropic.com/
+GOOGLE_API_KEY=xxx                # https://aistudio.google.com/app/apikey
+XAI_API_KEY=xai-xxx               # https://console.x.ai/
+```
 
-# Manual mode (no API keys needed)
+### Verify Setup
+
+```bash
+python main.py status   # Check which providers are available
+```
+
+### Run Your First Council
+
+```bash
+# Basic question
+python main.py run "What's the best database for a real-time chat app?"
+
+# With human-in-the-loop (you can intervene between debate rounds)
+python main.py run --hitl "Should we use microservices or monolith?"
+
+# Controversial topic (triggers multi-round debates)
+python main.py run --threshold 3 "Is remote work better than office work?"
+
+# Manual mode (no API keys needed — you input responses yourself)
 python main.py run --manual "Your question here"
 
 # Save output to file
-python main.py run -o json -s result.json "Your question"
+python main.py run -o markdown -s result.md "Your question"
 ```
 
 ## 📋 Council Methodology

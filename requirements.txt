@@ -1,0 +1,21 @@
+# Lamochka LLM Council - Dependencies
+# Install: pip install -r requirements.txt
+
+typer[all]>=0.9.0
+rich>=13.7.0
+httpx>=0.26.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+python-dotenv>=1.0.0
+openai>=1.10.0
+anthropic>=0.18.0
+google-generativeai>=0.4.0
+tenacity>=8.2.3
+duckduckgo-search>=4.4.0
+aiohttp>=3.9.0
+ollama>=0.1.6
+PyYAML>=6.0.1
+
+# Optional: for API server
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0

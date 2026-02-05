@@ -1,6 +1,6 @@
 """LLM Provider implementations."""
 
-from .base import BaseProvider
+from .base import BaseProvider, LLMResponse
 from .openrouter import OpenRouterProvider
 from .openai_provider import OpenAIProvider
 from .anthropic_provider import AnthropicProvider
@@ -11,6 +11,7 @@ from .factory import get_provider, ProviderFactory
 
 __all__ = [
     "BaseProvider",
+    "LLMResponse",
     "OpenRouterProvider",
     "OpenAIProvider",
     "AnthropicProvider",

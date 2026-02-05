@@ -62,3 +62,4 @@ output/
 # Local config overrides
 config.local.yaml
 roles.local.json
+results/

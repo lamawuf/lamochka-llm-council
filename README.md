@@ -296,6 +296,28 @@ pytest --cov=. --cov-report=html
 pytest tests/test_council.py -v
 ```
 
+## 🔒 Security Scanner
+
+Before running code from unknown repos, scan for malicious content:
+
+```bash
+# Scan any GitHub repository
+python main.py check-repo https://github.com/user/repo
+
+# Exit code: 0 = safe, 1 = issues found
+```
+
+**What it checks:**
+- 🔴 **HIGH**: Obfuscated code (drainers), hardcoded wallet keys, curl|bash, data exfil
+- 🟡 **MEDIUM**: Hardcoded API keys, base64 decode, shell=True subprocess
+- 🟢 **LOW**: exec/eval usage, dangerous rm -rf patterns
+
+**Also checks:**
+- Typosquatting in dependencies (fake packages like `reqeusts` instead of `requests`)
+- `.env` files committed or not gitignored
+
+See [SECURITY_GUIDE.md](./SECURITY_GUIDE.md) for manual security audit steps.
+
 ## 📊 Best Practices
 
 1. **Clear Prompts**: Be specific about what you're asking

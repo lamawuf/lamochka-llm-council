@@ -1,0 +1,27 @@
+[
+  {
+    "role": "chairman",
+    "model": "claude",
+    "provider": "openrouter"
+  },
+  {
+    "role": "critic",
+    "model": "grok",
+    "provider": "openrouter"
+  },
+  {
+    "role": "researcher",
+    "model": "gemini",
+    "provider": "openrouter"
+  },
+  {
+    "role": "optimizer",
+    "model": "gpt4",
+    "provider": "openrouter"
+  },
+  {
+    "role": "domain_expert",
+    "model": "claude",
+    "provider": "openrouter"
+  }
+]

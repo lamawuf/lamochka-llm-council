@@ -1,0 +1,22 @@
+[
+  {
+    "role": "chairman",
+    "model": "claude",
+    "provider": null
+  },
+  {
+    "role": "critic",
+    "model": "grok",
+    "provider": null
+  },
+  {
+    "role": "researcher",
+    "model": "gemini",
+    "provider": null
+  },
+  {
+    "role": "optimizer",
+    "model": "gpt4",
+    "provider": null
+  }
+]

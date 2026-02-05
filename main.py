@@ -260,5 +260,27 @@ def serve(
     uvicorn.run("api:app", host=host, port=port, reload=False)
 
 
+@app.command("check-repo")
+def check_repo(
+    repo_url: str = typer.Argument(..., help="GitHub repository URL to scan"),
+):
+    """
+    Scan a GitHub repository for security issues.
+
+    Checks for:
+    - Obfuscated code (drainers, backdoors)
+    - Hardcoded secrets (API keys, private keys)
+    - Malicious packages (typosquatting)
+    - Suspicious patterns (curl|bash, data exfiltration)
+
+    Examples:
+        council check-repo https://github.com/user/repo
+    """
+    from security_check import check_repo as scan_repo
+
+    is_safe = scan_repo(repo_url)
+    raise typer.Exit(0 if is_safe else 1)
+
+
 if __name__ == "__main__":
     app()
